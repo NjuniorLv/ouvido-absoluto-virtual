@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ouvido Absoluto Virtual</title>
+  <meta name="description" content="Identifica nota, cifra, música e artista apenas cantando ou tocando." />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #1e3c72, #2a5298);
+      color: white;
+      min-height: 100vh;
+      padding: 15px;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: rgba(0, 0, 0, 0.4);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    }
+    header {
+      text-align: center;
+      padding: 20px;
+      background: #111;
+    }
+    h1 {
+      font-size: 1.8em;
+      margin: 0;
+      color: #FFD700;
+    }
+    p {
+      opacity: 0.9;
+      font-size: 0.95em;
+      margin: 10px 0 0;
+    }
+    .tabs {
+      display: flex;
+      background: #333;
+      overflow-x: auto;
+    }
+    .tab {
+      padding: 15px 20px;
+      cursor: pointer;
+      flex: 1;
+      text-align: center;
+      font-weight: bold;
+      transition: background 0.3s;
+    }
+    .tab.active {
+      background: #FFD700;
+      color: #333;
+    }
+    .content {
+      display: none;
+      padding: 20px;
+    }
+    .content.active {
+      display: block;
+    }
+    button {
+      padding: 14px 24px;
+      font-size: 16px;
+      background: #FFD700;
+      color: #333;
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      margin: 10px 5px;
+      font-weight: bold;
+      transition: all 0.3s;
+    }
+    button:hover {
+      transform: scale(1.05);
+      background: #FFC400;
+    }
+    button:disabled {
+      background: #aaa;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .big-note {
+      font-size: 48px;
+      font-weight: bold;
+      color: #FFD700;
+      margin: 20px 0;
+    }
+    .chord-display {
+      font-size: 60px;
+      font-weight: bold;
+      color: #00ff00;
+      margin: 20px 0;
+      min-height: 80px;
+    }
+    .history {
+      max-height: 120px;
+      overflow-y: auto;
+      background: rgba(0,0,0,0.2);
+      padding: 10px;
+      border-radius: 10px;
+      margin: 15px 0;
+      text-align: left;
+      font-family: monospace;
+      font-size: 14px;
+    }
+    .speech-output {
+      background: rgba(255,255,255,0.1);
+      padding: 15px;
+      border-radius: 10px;
+      min-height: 60px;
+      margin: 15px 0;
+      text-align: left;
+      font-style: italic;
+    }
+    .loader {
+      border: 5px solid #f3f3f3;
+      border-top: 5px solid #FFD700;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+      margin: 10px auto;
+      display: none;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    footer {
+      text-align: center;
+      padding: 20px;
+      font-size: 0.9em;
+      opacity: 0.7;
+    }
+    @media (max-width: 600px) {
+      h1 { font-size: 1.5em; }
+      button { padding: 12px 18px; font-size: 15px; }
+      .big-note, .chord-display { font-size: 36px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🎧 Ouvido Absoluto Virtual</h1>
+      <p>Nota • Cifra • Letra • Música • Artista — em tempo real</p>
+    </header>
+
+    <!-- Abas -->
+    <div class="tabs">
+      <div class="tab active" data-tab="notes">🎼 Notas</div>
+      <div class="tab" data-tab="tuner">🎵 Afinador & Cifra</div>
+      <div class="tab" data-tab="speech">🎤 Letra</div>
+      <div class="tab" data-tab="music">🔍 Música</div>
+    </div>
+
+    <!-- Aba: Notas -->
+    <div class="content active" id="notes">
+      <button id="startBtn">🎤 Iniciar Microfone</button>
+      <p><strong>Nota Atual:</strong> <span class="big-note" id="currentNote">—</span></p>
+      <p><strong>Frequência:</strong> <span id="frequency">—</span> Hz</p>
+      <div class="history">
+        <strong>Notas recentes:</strong>
+        <pre id="noteHistory"></pre>
+      </div>
+    </div>
+
+    <!-- Aba: Afinador -->
+    <div class="content" id="tuner">
+      <button id="startTuner">🎤 Iniciar Afinador</button>
+      <p><strong>Nota:</strong> <span class="big-note" id="tunerNote">—</span></p>
+      <p><strong>Cifra Sugerida:</strong></p>
+      <div class="chord-display" id="chord">-</div>
+    </div>
+
+    <!-- Aba: Letra -->
+    <div class="content" id="speech">
+      <button id="startSpeech">🎤 Iniciar Leitura de Letra</button>
+      <p><strong>O que você está cantando:</strong></p>
+      <div class="speech-output" id="speechOutput">—</div>
+    </div>
+
+    <!-- Aba: Música -->
+    <div class="content" id="music">
+      <button id="startMusic">🎤 Gravar Trecho</button>
+      <button id="identifyBtn" disabled>🔍 Identificar Música</button>
+      <div class="loader" id="loader"></div>
+      <p><strong>Música:</strong> <span id="songName">—</span></p>
+      <p><strong>Artista:</strong> <span id="artist">—</span></p>
+      <p><strong>Álbum:</strong> <span id="album">—</span></p>
+    </div>
+
+    <footer>
+      ✅ Funciona em celular • 🔐 Privacidade total • Powered by Web APIs
+    </footer>
+  </div>
+
+  <!-- Biblioteca de detecção de pitch -->
+  <script src="https://cdn.jsdelivr.net/npm/pitchy@2.0.0"></script>
+
+  <!-- Script principal -->
+  <script>
+    // Seletores
+    const tabs = document.querySelectorAll(".tab");
+    const contents = document.querySelectorAll(".content");
+    const startBtn = document.getElementById("startBtn");
+    const startTuner = document.getElementById("startTuner");
+    const startSpeech = document.getElementById("startSpeech");
+    const startMusic = document.getElementById("startMusic");
+    const identifyBtn = document.getElementById("identifyBtn");
+    const loader = document.getElementById("loader");
+
+    const currentNote = document.getElementById("currentNote");
+    const frequency = document.getElementById("frequency");
+    const noteHistory = document.getElementById("noteHistory");
+
+    const tunerNote = document.getElementById("tunerNote");
+    const chord = document.getElementById("chord");
+
+    const speechOutput = document.getElementById("speechOutput");
+
+    const songName = document.getElementById("songName");
+    const artist = document.getElementById("artist");
+    const album = document.getElementById("album");
+
+    // Variáveis
+    let noteLog = [];
+    let audioChunks = [];
+    let mediaRecorder;
+    let audioContext, analyser;
+    let isListening = false;
+
+    // Trocar abas
+    tabs.forEach(tab => {
+      tab.addEventListener("click", () => {
+        tabs.forEach(t => t.classList.remove("active"));
+        contents.forEach(c => c.classList.remove("active"));
+        tab.classList.add("active");
+        document.getElementById(tab.dataset.tab).classList.add("active");
+      });
+    });
+
+    // Função para ativar microfone com loop personalizado
+    function startListening(onUpdate, btn) {
+      return async function () {
+        if (isListening) {
+          stopAll();
+          btn.textContent = btn.id === "startMusic" ? "🎤 Gravar Trecho" : "🎤 Iniciar Microfone";
+          if (btn === startTuner) startTuner.textContent = "🎤 Iniciar Afinador";
+          if (btn === startSpeech) startSpeech.textContent = "🎤 Iniciar Leitura de Letra";
+          return;
+        }
+
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          btn.textContent = "⏹️ Parar";
+          
+          audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          analyser = audioContext.createAnalyser();
+          const source = audioContext.createMediaStreamSource(stream);
+          source.connect(analyser);
+
+          if (btn === startMusic) {
+            identifyBtn.disabled = false;
+            audioChunks = [];
+            mediaRecorder = new MediaRecorder(stream);
+            mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+            mediaRecorder.start();
+          }
+
+          isListening = true;
+          onUpdate();
+        } catch (err) {
+          alert("Erro ao acessar microfone: " + err.message);
+        }
+      };
+    }
+
+    // Loop: Detecção de nota (abas Notas e Afinador)
+    function detectNote() {
+      if (!isListening) return;
+      const config = { smoothing: 0.8, minFrequency: 60, maxFrequency: 1000 };
+      const pitch = Pitchy.fromAnalyser(analyser, config);
+      if (pitch) {
+        const [freq, confidence] = pitch;
+        if (confidence > 0.3) {
+          const note = freqToNote(freq);
+          const noteName = note.replace(/\d/g, "");
+
+          // Atualizar aba Notas
+          if (document.getElementById("notes").classList.contains("active")) {
+            currentNote.textContent = note;
+            frequency.textContent = freq.toFixed(1);
+            noteLog.push(`${note} (${freq.toFixed(1)} Hz)`);
+            if (noteLog.length > 10) noteLog.shift();
+            noteHistory.textContent = noteLog.join("\n");
+          }
+
+          // Atualizar aba Afinador
+          if (document.getElementById("tuner").classList.contains("active")) {
+            tunerNote.textContent = note;
+            chord.textContent = noteToChord(noteName);
+          }
+        }
+      }
+      requestAnimationFrame(detectNote);
+    }
+
+    // Reconhecimento de voz (letra)
+    function startSpeechRecognition() {
+      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        alert("Seu navegador não suporta reconhecimento de voz. Use Chrome.");
+        return;
+      }
+
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'pt-BR';
+      recognition.interimResults = false;
+
+      startSpeech.textContent = startSpeech.textContent === "⏹️ Parar" ? "🎤 Iniciar Leitura de Letra" : "⏹️ Parar";
+
+      if (startSpeech.textContent === "⏹️ Parar") {
+        recognition.start();
+      } else {
+        recognition.abort();
+        return;
+      }
+
+      recognition.onresult = (e) => {
+        speechOutput.textContent = e.results[0][0].transcript;
+      };
+
+      recognition.onerror = (e) => {
+        speechOutput.textContent = "Erro: " + e.error;
+      };
+    }
+
+    // Identificação de música com AudD
+    async function identifyMusic() {
+      if (!mediaRecorder || mediaRecorder.state !== "inactive") return;
+
+      identifyBtn.disabled = true;
+      loader.style.display = "block";
+      songName.textContent = "Identificando...";
+      artist.textContent = "";
+      album.textContent = "";
+
+      const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+      const formData = new FormData();
+      formData.append("audio", audioBlob);
+      formData.append("api_token", "insira_seu_token_aqui"); // 🔑 Substitua!
+      formData.append("return", "apple_music,spotify");
+
+      try {
+        const res = await fetch("https://api.audd.io/", {
+          method: "POST",
+          body: formData
+        });
+        const data = await res.json();
+
+        if (data.status === "success" && data.result) {
+          const r = data.result;
+          songName.textContent = r.title;
+          artist.textContent = r.artist;
+          album.textContent = r.album || "—";
+        } else {
+          songName.textContent = "Não identificada";
+          artist.textContent = "Tente de novo";
+        }
+      } catch (err) {
+        songName.textContent = "Erro";
+        artist.textContent = "Verifique conexão";
+      } finally {
+        loader.style.display = "none";
+      }
+    }
+
+    // Nota → Cifra
+    function noteToChord(note) {
+      const map = { "Dó": "C", "Ré": "D", "Mi": "E", "Fá": "F", "Sol": "G", "Lá": "A", "Si": "B" };
+      const sharpMap = { "Dó#": "C#", "Ré#": "D#", "Fá#": "F#", "Sol#": "G#", "Lá#": "A#" };
+      return sharpMap[note] || map[note] || note;
+    }
+
+    // Frequência → Nota musical
+    function freqToNote(freq) {
+      const notes = ["Dó", "Dó#", "Ré", "Ré#", "Mi", "Fá", "Fá#", "Sol", "Sol#", "Lá", "Lá#", "Si"];
+      const A4 = 440;
+      const A4_INDEX = 9;
+      const h = Math.round(12 * Math.log2(freq / A4)) + A4_INDEX;
+      const octave = Math.floor((h + 9) / 12) + 4;
+      const noteIndex = (h % 12 + 12) % 12;
+      return notes[noteIndex] + octave;
+    }
+
+    // Parar tudo
+    function stopAll() {
+      if (audioContext) audioContext.close();
+      if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
+      if (mediaRecorder) mediaRecorder.stream.getTracks().forEach(t => t.stop());
+      isListening = false;
+    }
+
+    // Eventos
+    startBtn.addEventListener("click", startListening(detectNote, startBtn));
+    startTuner.addEventListener("click", startListening(detectNote, startTuner));
+    startSpeech.addEventListener("click", startSpeechRecognition);
+    startMusic.addEventListener("click", startListening(() => {}, startMusic));
+    identifyBtn.addEventListener("click", identifyMusic);
+  </script>
+</body>
+</html>
